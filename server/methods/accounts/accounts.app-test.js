@@ -5,11 +5,12 @@ import { Meteor } from "meteor/meteor";
 import { Factory } from "meteor/dburles:factory";
 import { check, Match } from "meteor/check";
 import { Random } from "meteor/random";
-import { Accounts as MeteorAccount } from "meteor/accounts-base";
+import { Accounts as MeteorAccounts } from "meteor/accounts-base";
 import { expect } from "meteor/practicalmeteor:chai";
 import { sinon } from "meteor/practicalmeteor:sinon";
-import { Accounts, Packages, Orders, Products, Shops, Cart } from "/lib/collections";
-import { Reaction } from "/server/api";
+import { SSR } from "meteor/meteorhacks:ssr";
+import { Accounts, Groups, Packages, Orders, Products, Shops, Cart } from "/lib/collections";
+import { Logger, Reaction } from "/server/api";
 import { getShop, getAddress } from "/server/imports/fixtures/shops";
 import Fixtures from "/server/imports/fixtures";
 
@@ -502,76 +503,183 @@ describe("Account Meteor method ", function () {
   });
 
   describe("accounts/inviteShopMember", function () {
-    it("should not let non-Owners invite a user to the shop", function () {
-      sandbox.stub(Reaction, "hasPermission", () => false);
-      const createUserSpy = sandbox.spy(MeteorAccount, "createUser");
-      // create user
-      expect(() =>
-        Meteor.call("accounts/inviteShopMember", {
-          shopId,
-          groupId: Random.id(),
-          email: fakeUser.emails[0].address,
-          name: fakeUser.profile.addressBook[0].fullName
-        })).to.throw(Meteor.Error, /Access denied/);
-      // expect that createUser shouldnt have run
+    let createUserSpy;
+    let sendEmailSpy;
+    let groupId;
+    let group;
+
+    function callDescribed(accountAttributes = {}) {
+      const options = Object.assign({
+        shopId,
+        groupId,
+        email: fakeUser.emails[0].address,
+        name: fakeUser.profile.addressBook[0].fullName
+      }, accountAttributes);
+
+      return Meteor.call("accounts/inviteShopMember", options);
+    }
+
+    function stubPermissioning(settings) {
+      const { hasPermission, canInviteToGroup } = settings;
+
+      sandbox.stub(Reaction, "hasPermission", () => hasPermission);
+      sandbox
+        .stub(Reaction, "canInviteToGroup", () => canInviteToGroup)
+        .withArgs({ group, user: fakeUser });
+    }
+
+    beforeEach(function () {
+      createUserSpy = sandbox.spy(MeteorAccounts, "createUser");
+      sendEmailSpy = sandbox.stub(Reaction.Email, "send"); // stub instead of spy so we don't actually try to send
+
+      sandbox.stub(Meteor, "userId", () => fakeUser.userId);
+      sandbox.stub(Meteor, "user", () => fakeUser);
+
+      groupId = Random.id();
+      group = Factory.create("group");
+      sandbox.stub(Groups, "findOne", () => group).withArgs({ _id: groupId });
+    });
+
+    it("requires reaction-accounts permission", function () {
+      stubPermissioning({ hasPermission: false });
+      sandbox.stub(Logger, "error") // since we expect this, let's keep the output clean
+        .withArgs(sinon.match(/reaction-accounts permissions/));
+
+      expect(callDescribed).to.throw(Meteor.Error, /Access denied/);
       expect(createUserSpy).to.not.have.been.called;
     });
 
-    it("should let a Owner invite a user to the shop", function (done) {
-      this.timeout(20000);
-      this.retries(3);
-      sandbox.stub(Reaction, "hasPermission", () => true);
-      // TODO: Need to udpate this test to properly check the account created
-      // there's currently an error with Media branding asset when trying to do that
-      expect(() =>
-        Meteor.call("accounts/inviteShopMember", {
-          shopId,
-          groupId: Random.id(),
-          email: fakeUser.emails[0].address,
-          name: fakeUser.profile.addressBook[0].fullName
-        })).to.not.throw();
-      return done();
+    it("ensures the user has invite permission for this group/shop", function () {
+      stubPermissioning({ hasPermission: true, canInviteToGroup: false });
+
+      expect(callDescribed).to.throw(Meteor.Error, /Cannot invite/);
+      expect(createUserSpy).to.not.have.been.called;
+    });
+
+    it("prevents inviting the owner of a shop (only a member)", function () {
+      group.slug = "owner";
+      stubPermissioning({ hasPermission: true, canInviteToGroup: true });
+
+      expect(callDescribed).to.throw(Meteor.Error, /invite owner/);
+      expect(createUserSpy).to.not.have.been.called;
+    });
+
+    it("invites existing users", function () {
+      const subjectSpy = sandbox.spy(SSR, "render");
+
+      stubPermissioning({ hasPermission: true, canInviteToGroup: true });
+      sandbox
+        .stub(Meteor.users, "findOne", () => fakeUser)
+        .withArgs({ "emails.address": fakeUser.emails[0].address });
+
+      callDescribed();
+
+      expect(sendEmailSpy).to.have.been.called;
+      expect(createUserSpy).to.not.have.been.called;
+      expect(subjectSpy)
+        .to.have.been.calledWith(sinon.match(/inviteShopMember/));
+    });
+
+    it("creates and invites new users", function () {
+      const email = `${Random.id()}@example.com`;
+      const subjectSpy = sandbox.spy(SSR, "render");
+
+      stubPermissioning({ hasPermission: true, canInviteToGroup: true });
+
+      callDescribed({ email });
+
+      expect(sendEmailSpy).to.have.been.called;
+      expect(createUserSpy).to.have.been.called;
+      expect(subjectSpy)
+        .to.have.been.calledWith(sinon.match(/inviteNewShopMember/));
     });
   });
 
   describe("accounts/inviteShopOwner", function () {
+    let createUserSpy;
+    let sendEmailSpy;
+    let groupId;
+    let group;
+
+    function callDescribed(accountAttributes = {}) {
+      const options = Object.assign({
+        email: fakeUser.emails[0].address,
+        name: fakeUser.profile.addressBook[0].fullName
+      }, accountAttributes);
+
+      return Meteor.call("accounts/inviteShopOwner", options);
+    }
+
+    function stubPermissioning(settings) {
+      const { hasPermission } = settings;
+
+      sandbox
+        .stub(Reaction, "hasPermission", () => hasPermission)
+        .withArgs("admin", fakeUser.userId, sinon.match.string);
+
+      // the following stub is just to speed things up. the tests were timing
+      // out in the shop creation step. this seems to resolve that.
+      sandbox.stub(Reaction, "insertPackagesForShop");
+    }
+
     beforeEach(function () {
-      sandbox.stub(Meteor, "user", function () {
-        return fakeUser;
-      });
+      createUserSpy = sandbox.spy(MeteorAccounts, "createUser");
+      sendEmailSpy = sandbox.stub(Reaction.Email, "send");
+
+      sandbox.stub(Meteor, "userId", () => fakeUser.userId);
+      sandbox.stub(Meteor, "user", () => fakeUser);
+
+      // resolves issues with the onCreateUser event handler
+      groupId = Random.id();
+      group = Factory.create("group");
+      sandbox
+        .stub(Groups, "findOne", () => group)
+        .withArgs({ _id: groupId, shopId: sinon.match.string });
+
+      // since we expect a note to be written, let's ignore it to keep the output clean
+      sandbox.stub(Logger, "info").withArgs(sinon.match(/Created shop/));
     });
 
-    it("should ensure only admin can invite as shop owner", function () {
-      sandbox.stub(Reaction, "hasPermission", () => false);
-      const createUserSpy = sandbox.spy(MeteorAccount, "createUser");
-      expect(() =>
-        Meteor.call("accounts/inviteShopOwner", {
-          email: fakeUser.emails[0].address,
-          name: fakeUser.profile.addressBook[0].fullName
-        })).to.throw(Meteor.Error, /Access denied/);
+    it("requires admin permission", function () {
+      stubPermissioning({ hasPermission: false });
+
+      expect(callDescribed).to.throw(Meteor.Error, /Access denied/);
       expect(createUserSpy).to.not.have.been.called;
     });
 
-    it("should confirm if email already exists before creating", function (done) {
-      sandbox.stub(Reaction, "hasPermission", () => true);
-      expect(() =>
-        Meteor.call("accounts/inviteShopOwner", {
-          email: fakeUser.emails[0].address,
-          name: fakeUser.profile.addressBook[0].fullName
-        })).to.not.throw();
+    it("invites existing users", function () {
+      const subjectSpy = sandbox.spy(SSR, "render");
 
-      return done();
+      stubPermissioning({ hasPermission: true });
+      sandbox
+        .stub(Meteor.users, "findOne", () => fakeUser)
+        .withArgs({ "emails.address": fakeUser.emails[0].address });
+      // feels like the db ought to be reset after each test run, but that is
+      // not happening. at this point, fakeUser already has a shop
+      sandbox
+        .stub(Accounts, "findOne", () => Factory.create("account", { shopId }))
+        .withArgs({ _id: fakeUser.userId });
+
+      callDescribed();
+
+      expect(sendEmailSpy).to.have.been.called;
+      expect(createUserSpy).to.not.have.been.called;
+      expect(subjectSpy)
+        .to.have.been.calledWith(sinon.match(/inviteShopOwner/));
     });
 
-    it("should let admin invite a user to manage a shop", function (done) {
-      sandbox.stub(Reaction, "hasPermission", () => true);
-      expect(() =>
-        Meteor.call("accounts/inviteShopOwner", {
-          email: "custom@email.co",
-          name: "custom name"
-        })).to.not.throw();
+    it("creates and invites new users", function () {
+      const email = `${Random.id()}@example.com`;
+      const subjectSpy = sandbox.spy(SSR, "render");
 
-      return done();
+      stubPermissioning({ hasPermission: true });
+
+      callDescribed({ email });
+
+      expect(sendEmailSpy).to.have.been.called;
+      expect(createUserSpy).to.have.been.called;
+      expect(subjectSpy)
+        .to.have.been.calledWith(sinon.match(/inviteShopOwner/));
     });
 
     it("creates a shop with the data provided", function () {
