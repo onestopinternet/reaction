@@ -16,10 +16,6 @@ import Fixtures from "/server/imports/fixtures";
 
 Fixtures();
 
-before(function () {
-  this.timeout(10000);
-});
-
 describe("Account Meteor method ", function () {
   let shopId;
   let fakeUser;
@@ -87,7 +83,7 @@ describe("Account Meteor method ", function () {
 
       Meteor.call("accounts/addressBookAdd", address);
 
-      const account = Accounts.findOne(fakeAccount._id);
+      const account = Accounts.findOne({ _id: fakeAccount._id });
       expect(account.profile.addressBook.length).to.equal(2);
     });
 
@@ -98,7 +94,7 @@ describe("Account Meteor method ", function () {
 
       Meteor.call("accounts/addressBookAdd", address, fakeAccount.userId);
 
-      const account = Accounts.findOne(fakeAccount._id);
+      const account = Accounts.findOne({ _id: fakeAccount._id });
       expect(account.profile.addressBook.length).to.equal(2);
     });
 
@@ -107,7 +103,7 @@ describe("Account Meteor method ", function () {
 
       Meteor.call("accounts/addressBookAdd", address);
 
-      const account = Accounts.findOne(fakeAccount._id);
+      const account = Accounts.findOne({ _id: fakeAccount._id });
       expect(account.profile.addressBook.length).to.equal(2);
       const newAddress = account.profile.addressBook[
         account.profile.addressBook.length - 1];
@@ -121,23 +117,23 @@ describe("Account Meteor method ", function () {
 
       expect(function () {
         return Meteor.call("accounts/addressBookAdd", 123456);
-      }).to.throw();
-
-      expect(function () {
-        return Meteor.call("accounts/addressBookAdd", {});
-      }).to.throw();
+      }).to.throw(Error, /must be an object/);
 
       expect(function () {
         return Meteor.call("accounts/addressBookAdd", null);
-      }).to.throw();
+      }).to.throw(Error, /must be an object/);
 
       expect(function () {
         return Meteor.call("accounts/addressBookAdd");
-      }).to.throw();
+      }).to.throw(Error, /must be an object/);
 
       expect(function () {
         return Meteor.call("accounts/addressBookAdd", "asdad", 123);
-      }).to.throw();
+      }).to.throw(Error, /must be an object/);
+
+      expect(function () {
+        return Meteor.call("accounts/addressBookAdd", {});
+      }).to.throw(Error, /Full name is required/);
 
       // https://github.com/aldeed/meteor-simple-schema/issues/522
       expect(function () {
@@ -159,7 +155,7 @@ describe("Account Meteor method ", function () {
           "accounts/addressBookAdd", getAddress(),
           account2._id
         );
-      }).to.throw();
+      }).to.throw(Meteor.Error, /Access denied/);
       expect(updateAccountSpy).to.not.have.been.called;
       expect(upsertAccountSpy).to.not.have.been.called;
     });
@@ -233,7 +229,7 @@ describe("Account Meteor method ", function () {
       Meteor.call("accounts/addressBookUpdate", address, fakeAccount.userId);
 
       // comparing two addresses to equality
-      const account = Accounts.findOne(fakeAccount._id);
+      const account = Accounts.findOne({ _id: fakeAccount._id });
       const newAddress = account.profile.addressBook[0];
       expect(_.isEqual(address, newAddress)).to.be.true;
     });
@@ -245,18 +241,33 @@ describe("Account Meteor method ", function () {
       Meteor.call("accounts/addressBookUpdate", address);
 
       // comparing two addresses to equality
-      const account = Accounts.findOne(fakeAccount._id);
+      const account = Accounts.findOne({ _id: fakeAccount._id });
       const newAddress = account.profile.addressBook[0];
       expect(_.isEqual(address, newAddress)).to.be.true;
     });
 
     it("should throw error if wrong arguments were passed", function () {
       const updateAccountSpy = sandbox.spy(Accounts, "update");
-      expect(() => Meteor.call("accounts/addressBookUpdate", 123456)).to.throw();
-      expect(() => Meteor.call("accounts/addressBookUpdate", {})).to.throw();
-      expect(() => Meteor.call("accounts/addressBookUpdate", null)).to.throw();
-      expect(() => Meteor.call("accounts/addressBookUpdate")).to.throw();
-      expect(() => Meteor.call("accounts/addressBookUpdate", "asdad", 123)).to.throw();
+
+      expect(() =>
+        Meteor.call("accounts/addressBookUpdate", 123456)
+      ).to.throw(Error, /must be an object/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookUpdate", null)
+      ).to.throw(Error, /must be an object/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookUpdate")
+      ).to.throw(Error, /must be an object/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookUpdate", "asdad", 123)
+      ).to.throw(Error, /must be an object/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookUpdate", {})
+      ).to.throw(Error, /Full name is required/);
 
       // https://github.com/aldeed/meteor-simple-schema/issues/522
       expect(function () {
@@ -271,7 +282,11 @@ describe("Account Meteor method ", function () {
     it("should not let non-Admin to edit address of another user", function () {
       const account2 = Factory.create("account");
       const accountUpdateSpy = sandbox.spy(Accounts, "update");
-      expect(() => Meteor.call("accounts/addressBookUpdate", getAddress(), account2._id)).to.throw();
+
+      expect(() =>
+        Meteor.call("accounts/addressBookUpdate", getAddress(), account2._id)
+      ).to.throw(Meteor.Error, /Access denied/);
+
       expect(accountUpdateSpy).to.not.have.been.called;
     });
 
@@ -284,9 +299,13 @@ describe("Account Meteor method ", function () {
         isBillingDefault: false
       });
       Meteor.call("accounts/addressBookUpdate", address);
+
       let cart = Cart.findOne({ userId: fakeAccount.userId });
-      expect(cart.billing).to.be.defined;
-      expect(cart.shipping).to.be.undefined;
+      // "cart/unsetAddresses" unsets cart.type.address, not cart.type,
+      // so we ensure that either cart.type (if the address was never
+      // created) or cart.type.address (if it had been unset) are now undefined
+      expect(cart.billing && cart.billing.address).to.be.undefined;
+      expect(cart.shipping && cart.shipping.address).to.be.undefined;
 
       address = Object.assign({}, fakeAccount.profile.addressBook[0], {
         isShippingDefault: true,
@@ -326,7 +345,7 @@ describe("Account Meteor method ", function () {
 
         Meteor.call("accounts/addressBookUpdate", address, null, "isBillingDefault");
         Meteor.call("accounts/addressBookUpdate", address, null, "isShippingDefault");
-        const account = Accounts.findOne(fakeAccount._id);
+        const account = Accounts.findOne({ _id: fakeAccount._id });
 
         expect(account.profile.addressBook[0].isBillingDefault).to.be.false;
         expect(account.profile.addressBook[0].isShippingDefault).to.be.false;
@@ -374,7 +393,7 @@ describe("Account Meteor method ", function () {
 
       Meteor.call("accounts/addressBookRemove", address._id);
 
-      const account = Accounts.findOne(fakeAccount._id);
+      const account = Accounts.findOne({ _id: fakeAccount._id });
       expect(account.profile.addressBook.length).to.equal(0);
     });
 
@@ -387,17 +406,32 @@ describe("Account Meteor method ", function () {
 
       Meteor.call("accounts/addressBookRemove", address._id, fakeAccount.userId);
 
-      const account = Accounts.findOne(fakeAccount._id);
+      const account = Accounts.findOne({ _id: fakeAccount._id });
       expect(account.profile.addressBook.length).to.equal(0);
     });
 
     it("should throw error if wrong arguments were passed", function () {
       const updateAccountSpy = sandbox.spy(Accounts, "update");
-      expect(() => Meteor.call("accounts/addressBookRemove", 123456)).to.throw();
-      expect(() => Meteor.call("accounts/addressBookRemove", {})).to.throw();
-      expect(() => Meteor.call("accounts/addressBookRemove", null)).to.throw();
-      expect(() => Meteor.call("accounts/addressBookRemove")).to.throw();
-      expect(() => Meteor.call("accounts/addressBookRemove", "asdad", 123)).to.throw();
+
+      expect(() =>
+        Meteor.call("accounts/addressBookRemove", 123456)
+      ).to.throw(Match.Error, /Expected string, got number/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookRemove", {})
+      ).to.throw(Match.Error, /Expected string, got object/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookRemove", null)
+      ).to.throw(Match.Error, /Expected string, got null/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookRemove")
+      ).to.throw(Match.Error, /Expected string, got undefined/);
+
+      expect(() =>
+        Meteor.call("accounts/addressBookRemove", "asdad", 123)
+      ).to.throw(Match.Error, /Match.Optional/);
 
       // https://github.com/aldeed/meteor-simple-schema/issues/522
       expect(function () {
@@ -416,7 +450,7 @@ describe("Account Meteor method ", function () {
       expect(() => Meteor.call(
         "accounts/addressBookRemove",
         address2._id, account2.userId
-      )).to.throw();
+      )).to.throw(Meteor.Error, /Access denied/);
       expect(accountUpdateSpy).to.not.have.been.called;
     });
 
@@ -577,7 +611,6 @@ describe("Account Meteor method ", function () {
     });
 
     it("invites existing users", function () {
-      this.timeout(1000);
       const subjectSpy = sandbox.spy(SSR, "render");
 
       stubPermissioning({ hasPermission: true });
