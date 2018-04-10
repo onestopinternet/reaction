@@ -856,12 +856,10 @@ describe("core product methods", function () {
         weight: 0,
         updatedAt: new Date()
       };
-
-      Meteor.call(
+      expect(() => Meteor.call(
         "products/updateProductPosition",
         product._id, position, tag.slug
-      );
-
+      )).to.not.throw(Meteor.Error, /Access Denied/);
       const updatedProductRevision = Revisions.findOne({ documentId: product._id });
       expect(updatedProductRevision.documentData.positions[tag.slug].position).to.equal(0);
     });
@@ -873,12 +871,10 @@ describe("core product methods", function () {
         weight: 0,
         updatedAt: new Date()
       };
-
-      Meteor.call(
+      expect(() => Meteor.call(
         "products/updateProductPosition",
         product._id, position, tag.slug
-      );
-
+      )).to.not.throw(Meteor.Error, /Access Denied/);
       Meteor.call("revisions/publish", product._id);
       const updatedProduct = Products.findOne(product._id);
       expect(updatedProduct.positions[tag.slug].position).to.equal(0);
@@ -1025,7 +1021,7 @@ describe("core product methods", function () {
       sandbox.stub(Reaction, "hasPermission", () => true);
       let product = addProduct();
       const { isVisible } = product;
-      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw();
+      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw(Meteor.Error, /Access Denied/);
       Meteor.call("revisions/publish", product._id);
       product = Products.findOne(product._id);
       // We switch the visible state in `products/publishProdct` for revisions
@@ -1036,10 +1032,10 @@ describe("core product methods", function () {
       sandbox.stub(Reaction, "hasPermission", () => true);
       let product = addProduct();
       const { isVisible } = product;
-      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw();
+      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw(Meteor.Error, /Access Denied/);
       product = Products.findOne(product._id);
       expect(product.isVisible).to.equal(isVisible);
-      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw();
+      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw(Meteor.Error, /Bad Request/);
       product = Products.findOne(product._id);
       expect(product.isVisible).to.equal(isVisible);
     });
@@ -1049,10 +1045,10 @@ describe("core product methods", function () {
       const product = addProduct();
       let productRevision = Revisions.findOne({ documentId: product._id });
       const { isVisible } = productRevision.documentData;
-      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw();
+      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw(Meteor.Error, /Access Denied/);
       productRevision = Revisions.findOne({ documentId: product._id });
       expect(productRevision.documentData.isVisible).to.equal(!isVisible);
-      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw();
+      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw(Meteor.Error, /Bad Request/);
       productRevision = Revisions.findOne({ documentId: product._id });
       expect(productRevision.documentData.isVisible).to.equal(!isVisible);
     });
@@ -1063,13 +1059,13 @@ describe("core product methods", function () {
       const { isVisible } = product; // false
 
       // Toggle visible
-      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw();
+      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw(Meteor.Error, /Access Denied/);
       Meteor.call("revisions/publish", product._id);
       product = Products.findOne(product._id);
       expect(product.isVisible).to.equal(!isVisible);
 
       // Toggle not visible
-      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw();
+      expect(() => Meteor.call("products/publishProduct", product._id)).to.not.throw(Meteor.Error, /Bad Request/);
       Meteor.call("revisions/publish", product._id);
       product = Products.findOne(product._id);
       expect(product.isVisible).to.equal(isVisible);
@@ -1078,7 +1074,6 @@ describe("core product methods", function () {
     it("should not publish product when missing title", function () {
       sandbox.stub(Reaction, "hasPermission", () => true);
       let product = addProduct();
-
       const { isVisible } = product;
       Products.update(product._id, {
         $set: {
