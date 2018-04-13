@@ -249,25 +249,20 @@ describe("Account Meteor method ", function () {
     it("should throw error if wrong arguments were passed", function () {
       const updateAccountSpy = sandbox.spy(Accounts, "update");
 
-      expect(() =>
-        Meteor.call("accounts/addressBookUpdate", 123456)
-      ).to.throw(Error, /must be an object/);
+      expect(() => Meteor.call("accounts/addressBookUpdate", 123456))
+        .to.throw(Error, /must be an object/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookUpdate", null)
-      ).to.throw(Error, /must be an object/);
+      expect(() => Meteor.call("accounts/addressBookUpdate", null))
+        .to.throw(Error, /must be an object/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookUpdate")
-      ).to.throw(Error, /must be an object/);
+      expect(() => Meteor.call("accounts/addressBookUpdate"))
+        .to.throw(Error, /must be an object/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookUpdate", "asdad", 123)
-      ).to.throw(Error, /must be an object/);
+      expect(() => Meteor.call("accounts/addressBookUpdate", "asdad", 123))
+        .to.throw(Error, /must be an object/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookUpdate", {})
-      ).to.throw(Error, /Full name is required/);
+      expect(() => Meteor.call("accounts/addressBookUpdate", {}))
+        .to.throw(Error, /Full name is required/);
 
       // https://github.com/aldeed/meteor-simple-schema/issues/522
       expect(function () {
@@ -283,9 +278,8 @@ describe("Account Meteor method ", function () {
       const account2 = Factory.create("account");
       const accountUpdateSpy = sandbox.spy(Accounts, "update");
 
-      expect(() =>
-        Meteor.call("accounts/addressBookUpdate", getAddress(), account2._id)
-      ).to.throw(Meteor.Error, /Access denied/);
+      expect(() => Meteor.call("accounts/addressBookUpdate", getAddress(), account2._id))
+        .to.throw(Meteor.Error, /Access denied/);
 
       expect(accountUpdateSpy).to.not.have.been.called;
     });
@@ -413,25 +407,20 @@ describe("Account Meteor method ", function () {
     it("should throw error if wrong arguments were passed", function () {
       const updateAccountSpy = sandbox.spy(Accounts, "update");
 
-      expect(() =>
-        Meteor.call("accounts/addressBookRemove", 123456)
-      ).to.throw(Match.Error, /Expected string, got number/);
+      expect(() => Meteor.call("accounts/addressBookRemove", 123456))
+        .to.throw(Match.Error, /Expected string, got number/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookRemove", {})
-      ).to.throw(Match.Error, /Expected string, got object/);
+      expect(() => Meteor.call("accounts/addressBookRemove", {}))
+        .to.throw(Match.Error, /Expected string, got object/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookRemove", null)
-      ).to.throw(Match.Error, /Expected string, got null/);
+      expect(() => Meteor.call("accounts/addressBookRemove", null))
+        .to.throw(Match.Error, /Expected string, got null/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookRemove")
-      ).to.throw(Match.Error, /Expected string, got undefined/);
+      expect(() => Meteor.call("accounts/addressBookRemove"))
+        .to.throw(Match.Error, /Expected string, got undefined/);
 
-      expect(() =>
-        Meteor.call("accounts/addressBookRemove", "asdad", 123)
-      ).to.throw(Match.Error, /Match.Optional/);
+      expect(() => Meteor.call("accounts/addressBookRemove", "asdad", 123))
+        .to.throw(Match.Error, /Match.Optional/);
 
       // https://github.com/aldeed/meteor-simple-schema/issues/522
       expect(function () {

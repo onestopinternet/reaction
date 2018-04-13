@@ -1084,9 +1084,8 @@ describe("core product methods", function () {
         validate: false
       });
 
-      expect(() =>
-        Meteor.call("products/publishProduct", product._id)
-      ).to.throw(Meteor.Error, /Bad Request/);
+      expect(() => Meteor.call("products/publishProduct", product._id))
+        .to.throw(Meteor.Error, /Bad Request/);
 
       product = Products.findOne(product._id);
       expect(product.isVisible).to.equal(isVisible);
