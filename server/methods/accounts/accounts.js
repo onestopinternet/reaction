@@ -357,7 +357,6 @@ export function addressBookAdd(address, accountUserId) {
           "profile.addressBook.$.isShippingDefault": false
         }
       });
-      // should the userId passed to this hook match the userId of the updated Account?
       Hooks.Events.run("afterAccountsUpdate", Meteor.userId(), {
         accountId: account._id,
         updatedFields: ["isShippingDefault"]
@@ -372,7 +371,6 @@ export function addressBookAdd(address, accountUserId) {
           "profile.addressBook.$.isBillingDefault": false
         }
       });
-      // should the userId passed to this hook match the userId of the updated Account?
       Hooks.Events.run("afterAccountsUpdate", Meteor.userId(), {
         accountId: account._id,
         updatedFields: ["isBillingDefault"]
@@ -399,7 +397,6 @@ export function addressBookAdd(address, accountUserId) {
     accountsUpdateQuery.$set.name = address.fullName;
   }
 
-  // should the userId here match the userId above?
   Meteor.users.update(Meteor.userId(), userUpdateQuery);
 
   const result = Accounts.upsert({
