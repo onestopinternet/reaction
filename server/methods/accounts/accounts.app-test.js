@@ -454,8 +454,8 @@ describe("Account Meteor method ", function () {
     });
 
     it("should throw an error if address does not exist to remove", function () {
-      sandbox.stub(Meteor, "userId", () => fakeUser.userId);
-      expect(() => Meteor.call("accounts/addressBookRemove", "asdasdasd")).to.throw(Meteor.Error, /Unable to remove address from account/);
+      expect(() => Meteor.call("accounts/addressBookRemove", "asdasdasd"))
+        .to.throw(Meteor.Error, /Unable to remove address from account/);
     });
   });
 
@@ -641,7 +641,7 @@ describe("Account Meteor method ", function () {
       // create Account to go with new user
       const newAccount = Factory.create("account", { _id: newUser.id, shopId: primaryShop.id });
       // to resolve an issue in the onCreateUser hook, stub user creation
-      sandbox.stub(MeteorAccount, "createUser", () => newUser._id);
+      sandbox.stub(MeteorAccounts, "createUser", () => newUser._id);
       sandbox.stub(Accounts, "findOne", () => newAccount)
         .withArgs({ id: newUser._id });
 
