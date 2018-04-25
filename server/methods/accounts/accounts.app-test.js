@@ -555,13 +555,13 @@ describe("Account Meteor method ", function () {
     let groupId;
     let group;
 
-    function callDescribed(accountAttributes = {}) {
+    function callDescribed(accountAttributes = {}, shopData) {
       const options = Object.assign({
         email: fakeUser.emails[0].address,
         name: fakeAccount.profile.addressBook[0].fullName
       }, accountAttributes);
 
-      return Meteor.call("accounts/inviteShopOwner", options);
+      return Meteor.call("accounts/inviteShopOwner", options, shopData);
     }
 
     function stubPermissioning(settings) {
@@ -633,22 +633,15 @@ describe("Account Meteor method ", function () {
       const primaryShop = getShop();
       const name = Random.id();
       const shopData = { name };
+      const email = `${Random.id()}@example.com`;
 
-      sandbox.stub(Reaction, "hasPermission", () => true);
+      stubPermissioning({ hasPermission: true });
       sandbox.stub(Reaction, "getPrimaryShop", () => primaryShop);
 
-      const newUser = Factory.create("user");
-      // create Account to go with new user
-      const newAccount = Factory.create("account", { _id: newUser.id, shopId: primaryShop.id });
-      // to resolve an issue in the onCreateUser hook, stub user creation
-      sandbox.stub(MeteorAccounts, "createUser", () => newUser._id);
-      sandbox.stub(Accounts, "findOne", () => newAccount)
-        .withArgs({ id: newUser._id });
+      sandbox.stub(Accounts, "findOne", () => fakeAccount)
+        .withArgs({ id: fakeUser._id });
 
-      Meteor.call("accounts/inviteShopOwner", {
-        email: "custom1@email.co",
-        name: "custom name"
-      }, shopData);
+      callDescribed({ email }, shopData);
 
       const newShopCount = Shops.find({ name }).count();
       expect(newShopCount).to.equal(1);
