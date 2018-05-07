@@ -10,7 +10,7 @@ import { createActiveShop } from "/server/imports/fixtures/shops";
 
 Fixtures();
 
-describe.only("Tags Publication", () => {
+describe("Tags Publication", () => {
   let collector;
   let primaryShop;
   let shop;
