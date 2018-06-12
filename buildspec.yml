@@ -10,7 +10,7 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      - docker build -t $IMAGE_REPO:latest .
+      - docker build -t $IMAGE_REPO:latest --build-arg TOOL_NODE_FLAGS="--max-old-space-size=4096" .
       - docker tag $IMAGE_REPO:latest 699870385704.dkr.ecr.us-west-2.amazonaws.com/$IMAGE_REPO:latest
       - echo Pushing the Docker image...
       - docker push 699870385704.dkr.ecr.us-west-2.amazonaws.com/$IMAGE_REPO:latest
