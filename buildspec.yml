@@ -1,0 +1,23 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo resolved source version $CODEBUILD_RESOLVED_SOURCE_VERSION
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region us-west-2)
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $IMAGE_REPO:latest .
+      - docker tag $IMAGE_REPO:latest 699870385704.dkr.ecr.us-west-2.amazonaws.com/$IMAGE_REPO:latest
+      - echo Pushing the Docker image...
+      - docker push 699870385704.dkr.ecr.us-west-2.amazonaws.com/$IMAGE_REPO:latest
+  post_build:
+    commands:
+      - echo Build completed on `date`
+
+artifacts:
+  files:
+    - Dockerrun.aws.json
