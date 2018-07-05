@@ -41,13 +41,13 @@ services:
     environment:
       METEOR_DISABLE_OPTIMISTIC_CACHING: 1
       MONGO_URL: "mongodb://mongo:27017/reaction"
-      ROOT_URL: "http://localhost:3000"
+      ROOT_URL: "http://localhost:80"
       BABEL_DISABLE_CACHE: 1 # This is needed to pick up changes to .graphql files. See https://www.npmjs.com/package/babel-plugin-inline-import#caveats
     networks:
       default:
       reaction-api:
     ports:
-      - "3000:3000"
+      - "80:80"
     volumes:
       - .:/opt/reaction/src
       - reaction_node_modules:/opt/reaction/src/node_modules # do not link node_modules in, and persist it between dc up runs

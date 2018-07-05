@@ -47,13 +47,13 @@ FROM node:8.11.3-slim
 
 # Default environment variables
 ENV ROOT_URL "http://localhost"
-ENV PORT 3000
+ENV PORT 80
 
 # grab the dependencies and built app from the previous builder image
 COPY --chown=node --from=builder /opt/reaction/dist/bundle /app
 
 WORKDIR /app
 
-EXPOSE 3000
+EXPOSE 80
 
 CMD ["node", "main.js"]

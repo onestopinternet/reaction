@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo resolved source version $CODEBUILD_RESOLVED_SOURCE_VERSION
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Running tests
+      - npm install
+      - npm run test:ci
+  post_build:
+    commands:
+      - echo Build completed on `date`
